@@ -1783,7 +1783,7 @@ RCSB PDB &rarr; ESMFold API &rarr; Idealized Backbone Torsion Modellers. Minimal
 st.markdown("<h3 style='font-family:\"Syne\",sans-serif; font-weight:700; color:#ECF0F5 !important;'>🔧 Operational Module Selection</h3>", unsafe_allow_html=True)
 mode = st.radio(
     "Choose active runtime operation context",
-    ["Single Peptide Prediction", "Batch Peptide Prediction", "PDB Upload & Structural Analysis"],
+    ["Premium Frontend", "Single Peptide Prediction", "Batch Peptide Prediction", "PDB Upload & Structural Analysis"],
     horizontal=True,
     label_visibility="collapsed"
 )
@@ -1796,6 +1796,120 @@ if "current_mode" not in st.session_state or st.session_state.current_mode != mo
     st.session_state.pdb_text        = None
     st.session_state.pdb_source      = None
     st.session_state.current_mode    = mode
+
+
+# --- Premium Frontend Mode: render isolated HTML workspace built from template ---
+if mode == "Premium Frontend":
+        # Build a small payload from available runtime state to inject into the frontend
+        lp = st.session_state.get("last_prediction") or {}
+        def _pct(val):
+                try:
+                        if isinstance(val, str):
+                                return float(val.strip().rstrip("%"))
+                        return float(val)
+                except Exception:
+                        return 0.0
+
+        payload = {
+                "calculated": bool(lp),
+                "seq": lp.get("Sequence", "") or "",
+                "length": 0,
+                "mw": 0,
+                "pI": 0,
+                "gravy": 0,
+                "taste": lp.get("Predicted taste", "") or lp.get("Predicted Taste", ""),
+                "solubility": lp.get("Predicted solubility", "") or lp.get("Predicted Solubility Index", ""),
+                "docking": lp.get("Docking score (kcal/mol)", 0) or 0,
+                "taste_conf": _pct(lp.get("Taste confidence") or lp.get("Taste confidence", "0%")),
+                "sol_conf": _pct(lp.get("Taste confidence") or lp.get("Taste confidence", "0%")),
+                "global_metrics": {
+                        "taste_acc": round(metrics.get("Taste accuracy", 0) * 100, 1) if "metrics" in globals() else 0,
+                        "taste_f1": metrics.get("Taste F1", 0) if "metrics" in globals() else 0,
+                        "sol_acc": round(metrics.get("Solubility accuracy", 0) * 100, 1) if "metrics" in globals() else 0,
+                        "sol_f1": metrics.get("Solubility F1", 0) if "metrics" in globals() else 0,
+                        "dock_r2": metrics.get("Docking R2", 0) if "metrics" in globals() else 0,
+                        "dock_rmse": metrics.get("Docking RMSE", 0) if "metrics" in globals() else 0,
+                }
+        }
+
+        payload_json = json.dumps(payload)
+
+        html_application_code = """
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PepTastePredictor — Premium Frontend</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+    <style>
+        html,body{{background:#05070C;color:#ECF0F5;font-family:'DM Sans',sans-serif;margin:0;padding:0}}
+        .wrap{{max-width:1100px;margin:18px auto;padding:20px}}
+        .hero{{background:linear-gradient(135deg,#071026 0%,#0b1321 100%);border-radius:16px;padding:28px 30px;box-shadow:0 12px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03)}}
+        .hero h1{{font-family:'Syne',sans-serif;font-size:32px;margin:0 0 6px;background:linear-gradient(90deg,#00D4A0,#5B9BFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
+        .hero p{{color:#9fb0d6;margin:0}}
+        .controls{{display:flex;gap:12px;margin-top:18px;align-items:center}}
+        .inp{{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:#0E131F;color:#ECF0F5;font-family:'JetBrains Mono',monospace}}
+        .btn{{background:linear-gradient(90deg,#00D4A0,#007BFF);border:none;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:700;box-shadow:0 8px 28px rgba(0,212,160,0.08)}}
+        .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}}
+        .card{{background:#0B0E16;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 20px rgba(0,0,0,0.45)}}
+        .card h4{margin:0 0 6px;color:#A3AED0;font-size:12px}
+        .card .val{font-family:'Syne',sans-serif;font-size:20px;color:#ECF0F5;font-weight:800}
+        .footer{{text-align:center;color:#78839a;margin-top:22px;font-size:13px}}
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="hero">
+            <h1>🧬 PepTaste Workbench — Compact</h1>
+            <p>Use the input below to analyze a peptide quickly. This premium mini-workbench injects core metrics from the Python backend.</p>
+            <div class="controls">
+                <input id="seq-input" class="inp" placeholder="Enter peptide sequence (e.g. EKKGIM...)" />
+                <button class="btn" onclick="executePipeline()">Analyze</button>
+            </div>
+            <div class="cards" style="margin-top:16px">
+                <div class="card"><h4>Assigned Taste</h4><div class="val" id="val-taste">—</div></div>
+                <div class="card"><h4>Solubility</h4><div class="val" id="val-sol">—</div></div>
+                <div class="card"><h4>Docking (kcal/mol)</h4><div class="val" id="val-dock">—</div></div>
+            </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:18px;align-items:center">
+            <canvas id="ch-radar" style="flex:1;height:260px;background:#071026;border-radius:12px;padding:12px"></canvas>
+            <div style="width:280px">
+                <pre id="fasta-display" style="background:#0E131F;padding:12px;border-radius:10px;color:#A3AED0;font-family:'JetBrains Mono',monospace">&gt;Sequence\n—</pre>
+            </div>
+        </div>
+        <div class="footer">Generated by PepTastePredictor · {date.today().year}</div>
+    </div>
+    <script>
+        const payload = {payload_json};
+        function executePipeline(){
+            const seq = document.getElementById('seq-input').value.trim();
+            if(!seq) return; window.parent.location.search = '?action=analyze&sequence='+encodeURIComponent(seq);
+        }
+        // initialize with injected payload values
+        document.addEventListener('DOMContentLoaded', ()=>{
+            try{
+                document.getElementById('val-taste').innerText = payload.taste || '—';
+                document.getElementById('val-sol').innerText = payload.solubility || '—';
+                document.getElementById('val-dock').innerText = payload.docking || '—';
+                document.getElementById('fasta-display').innerText = '>Sequence\n' + (payload.seq || '');
+
+                const ctx = document.getElementById('ch-radar');
+                new Chart(ctx, {
+                    type:'radar',data:{labels:['Taste','Solubility','Hydrophobic','Mass','Affinity'],datasets:[{label:'Topology',data:[payload.taste_conf||0,payload.sol_conf||0,Math.abs((payload.gravy||0)*40),Math.min(100,(payload.length||0)*2),Math.abs((payload.docking||0)*10)],borderColor:'#00D4A0',backgroundColor:'rgba(0,212,160,0.08)'}]},options:{responsive:true,scales:{r:{min:0,max:100}}}
+                });
+            }catch(e){console.warn(e)}
+        });
+    </script>
+</body>
+</html>
+"""
+
+        # Inject dynamic payload and year into the HTML template safely
+        html_application_code = html_application_code.replace("{payload_json}", payload_json).replace("{date.today().year}", str(date.today().year))
+        st.components.v1.html(html_application_code, height=820, scrolling=True)
 
 
 # ==========================================================
