@@ -12,6 +12,7 @@ seaborn
 
 openpyxl
 requests
+reportlab
 
 py3Dmol
 

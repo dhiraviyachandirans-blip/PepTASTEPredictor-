@@ -45,17 +45,21 @@ from sklearn.metrics import (
 )
 from sklearn.decomposition import PCA
 
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Image as RLImage,
-    Spacer,
-    Table,
-    TableStyle,
-)
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors as rl_colors
+REPORTLAB_AVAILABLE = True
+try:
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Image as RLImage,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors as rl_colors
+except ModuleNotFoundError:
+    REPORTLAB_AVAILABLE = False
 
 
 # ==========================================================
@@ -2233,16 +2237,22 @@ if st.session_state.show_analytics:
 
 if st.session_state.show_analytics and len(st.session_state.pdf_figures) > 0:
     st.markdown("<h3 style='font-family:\"Syne\",sans-serif; color:#ECF0F5 !important;'>📄 Automated Documentation Compiler</h3>", unsafe_allow_html=True)
-    pdf_path = generate_pdf(
-        metrics, st.session_state.last_prediction, st.session_state.pdf_figures)
-    if os.path.exists(pdf_path):
-        with open(pdf_path, "rb") as f:
-            st.download_button(
-                "📥 Export Complete Comprehensive Structural Analytics File (PDF Report Format)", f,
-                file_name="PepTastePredictor_Comprehensive_Analytical_Report.pdf",
-                mime="application/pdf",
-                type="secondary"
-            )
+    if REPORTLAB_AVAILABLE:
+        pdf_path = generate_pdf(
+            metrics, st.session_state.last_prediction, st.session_state.pdf_figures)
+        if os.path.exists(pdf_path):
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    "📥 Export Complete Comprehensive Structural Analytics File (PDF Report Format)", f,
+                    file_name="PepTastePredictor_Comprehensive_Analytical_Report.pdf",
+                    mime="application/pdf",
+                    type="secondary"
+                )
+    else:
+        st.warning(
+            "PDF export requires the `reportlab` package. "
+            "Add `reportlab` to your environment or install it via `pip install reportlab`."
+        )
 
 
 # ==========================================================
