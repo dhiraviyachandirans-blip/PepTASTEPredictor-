@@ -1844,19 +1844,32 @@ if mode == "Premium Frontend":
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
     <style>
-        html,body{{background:#05070C;color:#ECF0F5;font-family:'DM Sans',sans-serif;margin:0;padding:0}}
-        .wrap{{max-width:1100px;margin:18px auto;padding:20px}}
-        .hero{{background:linear-gradient(135deg,#071026 0%,#0b1321 100%);border-radius:16px;padding:28px 30px;box-shadow:0 12px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03)}}
-        .hero h1{{font-family:'Syne',sans-serif;font-size:32px;margin:0 0 6px;background:linear-gradient(90deg,#00D4A0,#5B9BFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
-        .hero p{{color:#9fb0d6;margin:0}}
-        .controls{{display:flex;gap:12px;margin-top:18px;align-items:center}}
-        .inp{{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:#0E131F;color:#ECF0F5;font-family:'JetBrains Mono',monospace}}
-        .btn{{background:linear-gradient(90deg,#00D4A0,#007BFF);border:none;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:700;box-shadow:0 8px 28px rgba(0,212,160,0.08)}}
-        .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}}
-        .card{{background:#0B0E16;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 20px rgba(0,0,0,0.45)}}
+        html,body{background:#05070C;color:#ECF0F5;font-family:'DM Sans',sans-serif;margin:0;padding:0}
+        :root{--accent:#00D4A0;--accent2:#5B9BFF}
+        .wrap{max-width:1100px;margin:18px auto;padding:20px;position:relative;overflow:hidden}
+
+        /* Animated gradient background */
+        .wrap::before{content:'';position:absolute;inset:-30% -10% -30% -10%;background:linear-gradient(120deg, rgba(0,212,160,0.03), transparent 20%, rgba(91,155,255,0.02));filter:blur(24px);transform:rotate(8deg);animation:bgShift 12s linear infinite}
+        @keyframes bgShift{0%{transform:rotate(0deg) translateX(0)}50%{transform:rotate(6deg) translateX(6%)}100%{transform:rotate(0deg) translateX(0)}}
+
+        .hero{background:linear-gradient(135deg,#071026 0%,#0b1321 100%);border-radius:16px;padding:28px 30px;box-shadow:0 12px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.03);opacity:0;transform:translateY(12px);animation:heroIn 700ms cubic-bezier(.2,.9,.3,1) forwards}
+        @keyframes heroIn{to{opacity:1;transform:none}}
+        .hero h1{font-family:'Syne',sans-serif;font-size:32px;margin:0 0 6px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero p{color:#9fb0d6;margin:0}
+        .controls{display:flex;gap:12px;margin-top:18px;align-items:center}
+        .inp{flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:#0E131F;color:#ECF0F5;font-family:'JetBrains Mono',monospace}
+        .btn{background:linear-gradient(90deg,var(--accent),#007BFF);border:none;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:700;box-shadow:0 8px 28px rgba(0,212,160,0.08)}
+
+        .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}
+        .card{background:#0B0E16;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 20px rgba(0,0,0,0.45);opacity:0;transform:translateY(8px);animation:cardIn 540ms cubic-bezier(.2,.9,.3,1) forwards}
+        .cards .card:nth-child(1){animation-delay:0.28s}.cards .card:nth-child(2){animation-delay:0.42s}.cards .card:nth-child(3){animation-delay:0.56s}
+        @keyframes cardIn{to{opacity:1;transform:none}}
         .card h4{margin:0 0 6px;color:#A3AED0;font-size:12px}
         .card .val{font-family:'Syne',sans-serif;font-size:20px;color:#ECF0F5;font-weight:800}
-        .footer{{text-align:center;color:#78839a;margin-top:22px;font-size:13px}}
+
+        .entry-canvas{position:absolute;inset:0;pointer-events:none;opacity:0.12}
+
+        .footer{text-align:center;color:#78839a;margin-top:22px;font-size:13px}
     </style>
 </head>
 <body>
@@ -1901,6 +1914,22 @@ if mode == "Premium Frontend":
                     type:'radar',data:{labels:['Taste','Solubility','Hydrophobic','Mass','Affinity'],datasets:[{label:'Topology',data:[payload.taste_conf||0,payload.sol_conf||0,Math.abs((payload.gravy||0)*40),Math.min(100,(payload.length||0)*2),Math.abs((payload.docking||0)*10)],borderColor:'#00D4A0',backgroundColor:'rgba(0,212,160,0.08)'}]},options:{responsive:true,scales:{r:{min:0,max:100}}}
                 });
             }catch(e){console.warn(e)}
+
+            // Particle entrance effect: dynamically add canvas and animate subtle particles
+            try{
+                const wrap = document.querySelector('.wrap');
+                const canvas = document.createElement('canvas');
+                canvas.className = 'entry-canvas';
+                canvas.id = 'entryCanvas';
+                wrap.appendChild(canvas);
+                const dpr = window.devicePixelRatio || 1;
+                function resize(){ canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.width = wrap.clientWidth * dpr; canvas.height = wrap.clientHeight * dpr; }
+                resize(); window.addEventListener('resize', resize);
+                const c = canvas.getContext('2d');
+                const particles = Array.from({length:28}, ()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:(Math.random()*1.6+0.6)*dpr,vx:(Math.random()-0.5)*0.6,vy:(Math.random()-0.5)*0.6,alpha:Math.random()*0.5+0.08}));
+                function anim(){ c.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; if(p.x<0) p.x=canvas.width; if(p.x>canvas.width) p.x=0; if(p.y<0) p.y=canvas.height; if(p.y>canvas.height) p.y=0; c.beginPath(); c.arc(p.x,p.y,p.r,0,Math.PI*2); c.fillStyle = `rgba(0,212,160,${p.alpha})`; c.fill(); }); requestAnimationFrame(anim); }
+                anim();
+            }catch(err){ console.warn('particle init', err); }
         });
     </script>
 </body>
