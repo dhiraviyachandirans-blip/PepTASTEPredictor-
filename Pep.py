@@ -1618,6 +1618,19 @@ def train_models():
 
     df = pd.read_excel(DATASET_PATH)
     df.columns = df.columns.str.lower().str.strip()
+
+    if "solubilty" in df.columns and "solubility" not in df.columns:
+        df = df.rename(columns={"solubilty": "solubility"})
+
+    required_columns = ["peptide", "taste", "solubility", "docking score (kcal/mol)"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        st.error(
+            "Required training columns are missing from the dataset: "
+            + ", ".join(missing_columns)
+        )
+        st.stop()
+
     df["peptide"] = df["peptide"].apply(clean_sequence)
     df = df[df["peptide"].str.len() >= 1].reset_index(drop=True)
     df = df[
